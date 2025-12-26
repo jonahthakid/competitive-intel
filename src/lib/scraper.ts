@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Promo detection patterns
 const PROMO_PATTERNS = [
-  /(\d+)\s*%\s*(off|OFF)/i,
+  /(\d+)\s*%\s*(off|OFF|discount)/i,
   /(save|SAVE)\s*(\d+)\s*%/i,
   /up\s*to\s*(\d+)\s*%/i,
   /(free|FREE)\s*(shipping|SHIPPING)/i,
@@ -13,6 +13,20 @@ const PROMO_PATTERNS = [
   /(sitewide|site-wide|site\s*wide)/i,
   /(limited\s*time|today\s*only|ends\s*soon)/i,
   /(extra|additional)\s*(\d+)\s*%/i,
+  /(first\s*(order|purchase))/i,
+  /(welcome\s*(offer|discount|code))/i,
+  /(exclusive|special)\s*(offer|deal|discount)/i,
+  /get\s*\$?\d+\s*(off|%)/i,
+  /(unlock|claim|grab)\s*(\d+|your)\s*%/i,
+];
+
+// Email signup offer patterns
+const SIGNUP_OFFER_PATTERNS = [
+  /(sign\s*up|subscribe|join|enter).{0,30}(\d+\s*%|free|\$\d+)/i,
+  /(\d+\s*%|free|\$\d+).{0,30}(sign\s*up|subscribe|join|first)/i,
+  /(email|newsletter).{0,30}(\d+\s*%|\$\d+|discount|off)/i,
+  /(get|receive|unlock).{0,20}(\d+\s*%).{0,20}(email|sign|join|subscribe)/i,
+  /join.{0,30}(list|club|vip|newsletter)/i,
 ];
 
 // Code extraction pattern
@@ -46,7 +60,38 @@ const BANNER_SELECTORS = [
   '[class*="slider"]',
   '[class*="carousel"]',
   '[class*="homepage-hero"]',
+  '[class*="main-banner"]',
+  '[class*="feature"]',
   'main section:first-child',
+];
+
+// Popup/modal selectors (email signup offers)
+const POPUP_SELECTORS = [
+  '[class*="popup"]',
+  '[class*="modal"]',
+  '[class*="newsletter"]',
+  '[class*="signup"]',
+  '[class*="sign-up"]',
+  '[class*="subscribe"]',
+  '[class*="email-capture"]',
+  '[class*="email-signup"]',
+  '[class*="klaviyo"]',
+  '[class*="privy"]',
+  '[class*="optinmonster"]',
+  '[class*="sumo"]',
+  '[class*="wheelio"]',
+  '[class*="spin-wheel"]',
+  '[class*="exit-intent"]',
+  '[class*="welcome-popup"]',
+  '[class*="first-visit"]',
+  '[id*="popup"]',
+  '[id*="modal"]',
+  '[id*="newsletter"]',
+  '[data-popup]',
+  '[data-modal]',
+  '[role="dialog"]',
+  '.klaviyo-form',
+  '.privy-popup',
 ];
 
 interface ScrapeResult {
@@ -67,6 +112,10 @@ interface DetectedPromo {
 
 function matchesPromo(text: string): boolean {
   return PROMO_PATTERNS.some(pattern => pattern.test(text));
+}
+
+function matchesSignupOffer(text: string): boolean {
+  return SIGNUP_OFFER_PATTERNS.some(pattern => pattern.test(text));
 }
 
 function extractDiscount(text: string): { percent: number | null; amount: number | null } {
@@ -119,11 +168,12 @@ function cleanText(text: string): string {
 
 function scorePromo(text: string, sourceType: string): number {
   let score = 0;
-  
+
   // Source type scoring
   if (sourceType === 'announcement_bar') score += 30;
   if (sourceType === 'hero_banner') score += 20;
-  
+  if (sourceType === 'popup') score += 25;
+
   // Content scoring
   if (/\d+\s*%/.test(text)) score += 25;
   if (/(code|promo|coupon)/i.test(text)) score += 20;
@@ -131,12 +181,70 @@ function scorePromo(text: string, sourceType: string): number {
   if (/(free shipping)/i.test(text)) score += 10;
   if (/(sale|clearance)/i.test(text)) score += 10;
   if (/(limited|today|ends)/i.test(text)) score += 5;
-  
+
+  // Signup offer bonuses
+  if (/(sign\s*up|subscribe|join|newsletter)/i.test(text)) score += 15;
+  if (/(first\s*(order|purchase)|welcome)/i.test(text)) score += 15;
+  if (/(email|inbox)/i.test(text)) score += 10;
+
   // Penalize long text (likely not a promo)
   if (text.length > 200) score -= 10;
   if (text.length > 300) score -= 20;
-  
+
   return Math.max(0, Math.min(100, score));
+}
+
+// Extract offers from JSON-LD schema
+function extractOffersFromSchema(json: any): DetectedPromo[] {
+  const offers: DetectedPromo[] = [];
+
+  function traverse(obj: any) {
+    if (!obj || typeof obj !== 'object') return;
+
+    // Check for Offer type
+    if (obj['@type'] === 'Offer' || obj['@type'] === 'AggregateOffer') {
+      const discount = obj.discount || obj.priceDiscount;
+      const description = obj.description || obj.name || '';
+
+      if (discount || (description && matchesPromo(description))) {
+        const { percent, amount } = extractDiscount(String(discount || description));
+        offers.push({
+          text: description || `${discount} off`,
+          discountPercent: percent,
+          discountAmount: amount,
+          code: obj.discountCode || null,
+          sourceType: 'other',
+          confidence: 50,
+        });
+      }
+    }
+
+    // Check for Sale type
+    if (obj['@type'] === 'Sale' || obj['@type'] === 'OfferCatalog') {
+      const name = obj.name || obj.description || '';
+      if (name && matchesPromo(name)) {
+        const { percent, amount } = extractDiscount(name);
+        offers.push({
+          text: name,
+          discountPercent: percent,
+          discountAmount: amount,
+          code: null,
+          sourceType: 'other',
+          confidence: 45,
+        });
+      }
+    }
+
+    // Recurse into arrays and objects
+    if (Array.isArray(obj)) {
+      obj.forEach(traverse);
+    } else {
+      Object.values(obj).forEach(traverse);
+    }
+  }
+
+  traverse(json);
+  return offers;
 }
 
 function isJunkText(text: string): boolean {
@@ -213,15 +321,15 @@ export async function scrapeHomepage(url: string): Promise<ScrapeResult> {
       $(selector).each((_, el) => {
         // Skip if it contains too many links (likely navigation)
         if ($(el).find('a').length > 10) return;
-        
+
         const text = cleanText($(el).text());
-        
+
         if (text && !seenTexts.has(text) && matchesPromo(text) && !isJunkText(text)) {
           seenTexts.add(text);
           const { percent, amount } = extractDiscount(text);
           const code = extractCode(text);
           const confidence = scorePromo(text, 'hero_banner');
-          
+
           if (confidence >= 30) {
             promos.push({
               text,
@@ -235,11 +343,78 @@ export async function scrapeHomepage(url: string): Promise<ScrapeResult> {
         }
       });
     }
-    
+
+    // Scan popups/modals for email signup offers
+    for (const selector of POPUP_SELECTORS) {
+      $(selector).each((_, el) => {
+        const text = cleanText($(el).text());
+
+        // Check for both promo patterns and signup offer patterns
+        if (text && !seenTexts.has(text) && (matchesPromo(text) || matchesSignupOffer(text)) && !isJunkText(text)) {
+          seenTexts.add(text);
+          const { percent, amount } = extractDiscount(text);
+          const code = extractCode(text);
+          const confidence = scorePromo(text, 'popup');
+
+          if (confidence >= 25) {
+            promos.push({
+              text,
+              discountPercent: percent,
+              discountAmount: amount,
+              code,
+              sourceType: 'popup',
+              confidence,
+            });
+          }
+        }
+      });
+    }
+
+    // Also scan for forms with email inputs that have promo text nearby
+    $('form').each((_, form) => {
+      const hasEmailInput = $(form).find('input[type="email"], input[name*="email"], input[placeholder*="email"]').length > 0;
+      if (hasEmailInput) {
+        const formText = cleanText($(form).text());
+        if (formText && !seenTexts.has(formText) && matchesSignupOffer(formText) && !isJunkText(formText)) {
+          seenTexts.add(formText);
+          const { percent, amount } = extractDiscount(formText);
+          const code = extractCode(formText);
+          const confidence = scorePromo(formText, 'popup');
+
+          if (confidence >= 25) {
+            promos.push({
+              text: formText,
+              discountPercent: percent,
+              discountAmount: amount,
+              code,
+              sourceType: 'popup',
+              confidence,
+            });
+          }
+        }
+      }
+    });
+
+    // Parse JSON-LD structured data for offers
+    $('script[type="application/ld+json"]').each((_, script) => {
+      try {
+        const json = JSON.parse($(script).html() || '');
+        const offers = extractOffersFromSchema(json);
+        for (const offer of offers) {
+          if (!seenTexts.has(offer.text)) {
+            seenTexts.add(offer.text);
+            promos.push(offer);
+          }
+        }
+      } catch {
+        // Ignore invalid JSON
+      }
+    });
+
     // Sort by confidence and dedupe
     const sortedPromos = promos
       .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 5); // Max 5 promos per scrape
+      .slice(0, 8); // Max 8 promos per scrape
     
     return {
       success: true,
