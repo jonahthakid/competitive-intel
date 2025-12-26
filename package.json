@@ -20,7 +20,6 @@
     "formidable": "^3.5.4",
     "lucide-react": "^0.294.0",
     "next": "14.0.4",
-    "playwright": "^1.57.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "stripe": "^20.1.0",
