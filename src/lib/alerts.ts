@@ -1,6 +1,7 @@
 import { supabaseAdmin, Alert, Promo, Competitor } from './supabase';
 import { sendSlackMessage, formatAlertMessage } from './slack';
 import { sendEmail } from './mailgun';
+import { sendSms, formatAlertSms } from './twilio';
 
 interface AlertCandidate {
   type: Alert['alert_type'];
@@ -264,7 +265,7 @@ async function createAndDeliverAlert(alert: AlertCandidate): Promise<boolean> {
   // Get org settings for delivery preferences
   const { data: org } = await supabaseAdmin
     .from('organizations')
-    .select('email, slack_webhook_url, alert_email_enabled, alert_slack_enabled')
+    .select('email, slack_webhook_url, phone_number, alert_email_enabled, alert_slack_enabled, alert_sms_enabled')
     .eq('id', alert.orgId)
     .single();
 
@@ -272,6 +273,7 @@ async function createAndDeliverAlert(alert: AlertCandidate): Promise<boolean> {
 
   let deliveredSlack = false;
   let deliveredEmail = false;
+  let deliveredSms = false;
 
   // Deliver via Slack if enabled
   if (org.alert_slack_enabled && org.slack_webhook_url) {
@@ -302,12 +304,29 @@ async function createAndDeliverAlert(alert: AlertCandidate): Promise<boolean> {
     });
   }
 
+  // Deliver via SMS if enabled
+  if (org.alert_sms_enabled && org.phone_number) {
+    const smsMessage = formatAlertSms({
+      type: alert.type,
+      title: alert.title,
+      competitorName: alert.competitorName,
+      promoCode: alert.metadata?.promo_code,
+      discountPercent: alert.metadata?.discount_percent,
+    });
+
+    deliveredSms = await sendSms({
+      to: org.phone_number,
+      message: smsMessage,
+    });
+  }
+
   // Update delivery status
   await supabaseAdmin
     .from('alerts')
     .update({
       delivered_slack: deliveredSlack,
       delivered_email: deliveredEmail,
+      delivered_sms: deliveredSms,
     })
     .eq('id', createdAlert.id);
 

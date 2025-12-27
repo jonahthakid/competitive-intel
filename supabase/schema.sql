@@ -17,8 +17,10 @@ CREATE TABLE organizations (
   stripe_subscription_id VARCHAR(255),
   subscription_status VARCHAR(50) DEFAULT 'none' CHECK (subscription_status IN ('none', 'active', 'past_due', 'canceled', 'trialing')),
   slack_webhook_url TEXT,
+  phone_number VARCHAR(20),
   alert_email_enabled BOOLEAN DEFAULT TRUE,
   alert_slack_enabled BOOLEAN DEFAULT FALSE,
+  alert_sms_enabled BOOLEAN DEFAULT FALSE,
   digest_frequency VARCHAR(50) DEFAULT 'daily' CHECK (digest_frequency IN ('realtime', 'daily', 'weekly', 'none')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -84,6 +86,7 @@ CREATE TABLE alerts (
   is_read BOOLEAN DEFAULT FALSE,
   delivered_slack BOOLEAN DEFAULT FALSE,
   delivered_email BOOLEAN DEFAULT FALSE,
+  delivered_sms BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

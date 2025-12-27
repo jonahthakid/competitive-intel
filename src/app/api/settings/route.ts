@@ -31,8 +31,10 @@ export async function GET(request: NextRequest) {
         subscription_status: org.subscription_status,
         stripe_customer_id: org.stripe_customer_id,
         slack_webhook_url: org.slack_webhook_url,
+        phone_number: org.phone_number,
         alert_email_enabled: org.alert_email_enabled ?? true,
         alert_slack_enabled: org.alert_slack_enabled ?? false,
+        alert_sms_enabled: org.alert_sms_enabled ?? false,
         digest_frequency: org.digest_frequency ?? 'daily',
       },
     });
@@ -55,8 +57,10 @@ export async function PATCH(request: NextRequest) {
     const allowedFields = [
       'name',
       'slack_webhook_url',
+      'phone_number',
       'alert_email_enabled',
       'alert_slack_enabled',
+      'alert_sms_enabled',
       'digest_frequency',
     ];
 

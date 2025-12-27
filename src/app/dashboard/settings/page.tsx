@@ -14,8 +14,10 @@ interface Organization {
   email_subdomain: string;
   subscription_status: string;
   slack_webhook_url: string;
+  phone_number: string;
   alert_email_enabled: boolean;
   alert_slack_enabled: boolean;
+  alert_sms_enabled: boolean;
   digest_frequency: string;
 }
 
@@ -30,8 +32,10 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState({
     name: '',
     slack_webhook_url: '',
+    phone_number: '',
     alert_email_enabled: true,
     alert_slack_enabled: false,
+    alert_sms_enabled: false,
     digest_frequency: 'daily',
   });
 
@@ -48,8 +52,10 @@ export default function SettingsPage() {
         setFormData({
           name: data.organization.name || '',
           slack_webhook_url: data.organization.slack_webhook_url || '',
+          phone_number: data.organization.phone_number || '',
           alert_email_enabled: data.organization.alert_email_enabled ?? true,
           alert_slack_enabled: data.organization.alert_slack_enabled ?? false,
+          alert_sms_enabled: data.organization.alert_sms_enabled ?? false,
           digest_frequency: data.organization.digest_frequency || 'daily',
         });
       }
@@ -229,6 +235,41 @@ export default function SettingsPage() {
                   placeholder="https://hooks.slack.com/services/..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+            )}
+
+            <label className="flex items-center justify-between">
+              <div>
+                <span className="text-gray-700">SMS alerts</span>
+                <p className="text-xs text-gray-500">Receive alerts via text message</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={formData.alert_sms_enabled}
+                onChange={(e) =>
+                  setFormData({ ...formData, alert_sms_enabled: e.target.checked })
+                }
+                className="w-5 h-5 rounded border-gray-300 text-blue-600"
+              />
+            </label>
+
+            {formData.alert_sms_enabled && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone_number}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone_number: e.target.value })
+                  }
+                  placeholder="+1 (555) 123-4567"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  US/Canada numbers only. Standard messaging rates may apply.
+                </p>
               </div>
             )}
 
