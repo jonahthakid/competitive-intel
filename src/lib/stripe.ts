@@ -23,6 +23,7 @@ export const PLANS = {
     scrapeIntervalHours: 6,
     historyDays: 30,
     seats: 1,
+    smsEnabled: false,
     features: [
       '5 competitors',
       'Homepage monitoring',
@@ -38,10 +39,12 @@ export const PLANS = {
     scrapeIntervalHours: 4,
     historyDays: 90,
     seats: 5,
+    smsEnabled: true,
     features: [
       '15 competitors',
       'Homepage + email monitoring',
       'Real-time Slack alerts',
+      'SMS alerts',
       '90-day history',
       '5 team seats',
     ],
@@ -54,10 +57,11 @@ export const PLANS = {
     scrapeIntervalHours: 1,
     historyDays: 365,
     seats: -1, // unlimited
+    smsEnabled: true,
     features: [
       '50 competitors',
       'Hourly monitoring',
-      'Slack + email alerts',
+      'Slack + email + SMS alerts',
       '1-year history',
       'Unlimited team seats',
       'API access',

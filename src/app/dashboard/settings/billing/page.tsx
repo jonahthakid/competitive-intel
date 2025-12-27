@@ -33,6 +33,7 @@ const PLANS = [
       '15 competitors',
       'Homepage + email monitoring',
       'Real-time Slack alerts',
+      'SMS alerts',
       '90-day history',
       '5 team seats',
     ],
@@ -44,7 +45,7 @@ const PLANS = [
     features: [
       '50 competitors',
       'Hourly monitoring',
-      'Slack + email alerts',
+      'Slack + email + SMS alerts',
       '1-year history',
       'Unlimited team seats',
       'API access',

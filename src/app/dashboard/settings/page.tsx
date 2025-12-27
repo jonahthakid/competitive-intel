@@ -241,19 +241,32 @@ export default function SettingsPage() {
             <label className="flex items-center justify-between">
               <div>
                 <span className="text-gray-700">SMS alerts</span>
-                <p className="text-xs text-gray-500">Receive alerts via text message</p>
+                <p className="text-xs text-gray-500">
+                  {org?.plan_tier === 'starter'
+                    ? 'Available on Growth and Enterprise plans'
+                    : 'Receive alerts via text message'}
+                </p>
               </div>
-              <input
-                type="checkbox"
-                checked={formData.alert_sms_enabled}
-                onChange={(e) =>
-                  setFormData({ ...formData, alert_sms_enabled: e.target.checked })
-                }
-                className="w-5 h-5 rounded border-gray-300 text-blue-600"
-              />
+              {org?.plan_tier === 'starter' ? (
+                <Link
+                  href="/dashboard/settings/billing"
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Upgrade
+                </Link>
+              ) : (
+                <input
+                  type="checkbox"
+                  checked={formData.alert_sms_enabled}
+                  onChange={(e) =>
+                    setFormData({ ...formData, alert_sms_enabled: e.target.checked })
+                  }
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600"
+                />
+              )}
             </label>
 
-            {formData.alert_sms_enabled && (
+            {formData.alert_sms_enabled && org?.plan_tier !== 'starter' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Phone Number

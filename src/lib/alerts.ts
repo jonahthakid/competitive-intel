@@ -265,7 +265,7 @@ async function createAndDeliverAlert(alert: AlertCandidate): Promise<boolean> {
   // Get org settings for delivery preferences
   const { data: org } = await supabaseAdmin
     .from('organizations')
-    .select('email, slack_webhook_url, phone_number, alert_email_enabled, alert_slack_enabled, alert_sms_enabled')
+    .select('email, slack_webhook_url, phone_number, alert_email_enabled, alert_slack_enabled, alert_sms_enabled, plan_tier')
     .eq('id', alert.orgId)
     .single();
 
@@ -304,8 +304,9 @@ async function createAndDeliverAlert(alert: AlertCandidate): Promise<boolean> {
     });
   }
 
-  // Deliver via SMS if enabled
-  if (org.alert_sms_enabled && org.phone_number) {
+  // Deliver via SMS if enabled (Growth and Enterprise plans only)
+  const smsEnabledPlans = ['growth', 'enterprise'];
+  if (org.alert_sms_enabled && org.phone_number && smsEnabledPlans.includes(org.plan_tier)) {
     const smsMessage = formatAlertSms({
       type: alert.type,
       title: alert.title,
