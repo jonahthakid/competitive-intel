@@ -108,6 +108,38 @@ export async function POST(request: NextRequest) {
       .update({ email_subscribed: true })
       .eq('id', competitorId);
 
+    // Create alert for promo emails
+    if (parsed.campaignType === 'promo') {
+      // Get competitor name for alert
+      const { data: competitor } = await supabaseAdmin
+        .from('competitors')
+        .select('name, domain')
+        .eq('id', competitorId)
+        .single();
+
+      if (competitor) {
+        const discountText = parsed.discountPercent
+          ? `${parsed.discountPercent}% off`
+          : parsed.promoCode
+          ? `Code: ${parsed.promoCode}`
+          : 'New promotion';
+
+        await supabaseAdmin.from('alerts').insert({
+          org_id: org.id,
+          competitor_id: competitorId,
+          alert_type: 'new_promo',
+          title: `${competitor.name} sent a promo email`,
+          message: `Subject: "${parsed.subject?.slice(0, 100)}" - ${discountText}`,
+          metadata: {
+            email_subject: parsed.subject,
+            promo_code: parsed.promoCode,
+            discount_percent: parsed.discountPercent,
+            campaign_type: parsed.campaignType,
+          },
+        });
+      }
+    }
+
     console.log(`Stored email from ${fromAddress} for competitor ${competitorId}`);
 
     return NextResponse.json({

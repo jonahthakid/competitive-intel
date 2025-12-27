@@ -69,7 +69,7 @@ export default function EmailsPage() {
       if (response.ok) {
         const data = await response.json();
         // Filter for only email events
-        const emailEvents = data.items?.filter((item: any) => item.event_type === 'email') || [];
+        const emailEvents = data.feed?.filter((item: any) => item.event_type === 'email') || [];
         setEmails(emailEvents);
       }
     } catch (error) {
