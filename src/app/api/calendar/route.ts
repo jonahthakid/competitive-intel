@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all promos in date range
-    const { data: promos, error } = await supabaseAdmin
+    const { data: promos, error: promosError } = await supabaseAdmin
       .from('promos')
       .select(`
         id,
@@ -52,12 +52,38 @@ export async function GET(request: NextRequest) {
       .lte('first_seen_at', end)
       .order('first_seen_at', { ascending: false });
 
-    if (error) {
-      throw error;
+    if (promosError) {
+      throw promosError;
+    }
+
+    // Get all emails in date range
+    const { data: emails, error: emailsError } = await supabaseAdmin
+      .from('emails')
+      .select(`
+        id,
+        subject,
+        campaign_type,
+        promo_code,
+        discount_percent,
+        received_at,
+        competitor:competitors!inner (
+          id,
+          name,
+          domain,
+          org_id
+        )
+      `)
+      .eq('competitors.org_id', org.id)
+      .gte('received_at', start)
+      .lte('received_at', end)
+      .order('received_at', { ascending: false });
+
+    if (emailsError) {
+      throw emailsError;
     }
 
     // Transform promos into calendar events
-    const events = (promos || []).map((promo: any) => ({
+    const promoEvents = (promos || []).map((promo: any) => ({
       id: promo.id,
       title: promo.discount_percent
         ? `${promo.discount_percent}% off`
@@ -74,7 +100,34 @@ export async function GET(request: NextRequest) {
       promoCode: promo.promo_code,
       discountPercent: promo.discount_percent,
       sourceType: promo.source_type,
+      eventType: 'promo' as const,
     }));
+
+    // Transform emails into calendar events
+    const emailEvents = (emails || []).map((email: any) => ({
+      id: `email-${email.id}`,
+      title: email.campaign_type === 'promo'
+        ? `📧 ${email.discount_percent ? `${email.discount_percent}% off` : 'Promo'}`
+        : `📧 ${email.campaign_type?.replace('_', ' ') || 'Email'}`,
+      description: email.subject?.slice(0, 100),
+      start: email.received_at,
+      end: email.received_at, // Emails are point-in-time events
+      isActive: false,
+      competitor: {
+        id: email.competitor.id,
+        name: email.competitor.name,
+        domain: email.competitor.domain,
+      },
+      promoCode: email.promo_code,
+      discountPercent: email.discount_percent,
+      sourceType: email.campaign_type || 'email',
+      eventType: 'email' as const,
+    }));
+
+    // Combine and sort all events
+    const events = [...promoEvents, ...emailEvents].sort(
+      (a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()
+    );
 
     // Get competitors for the legend
     const competitorMap = new Map<string, any>();

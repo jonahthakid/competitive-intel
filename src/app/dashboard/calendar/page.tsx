@@ -19,6 +19,7 @@ interface CalendarEvent {
   promoCode: string | null;
   discountPercent: number | null;
   sourceType: string;
+  eventType?: 'promo' | 'email';
 }
 
 export default function CalendarPage() {
@@ -52,15 +53,16 @@ export default function CalendarPage() {
   const exportToCSV = () => {
     if (events.length === 0) return;
 
-    const headers = ['Competitor', 'Promo', 'Code', 'Discount', 'Start Date', 'End Date', 'Status'];
+    const headers = ['Type', 'Competitor', 'Title', 'Code', 'Discount', 'Start Date', 'End Date', 'Status'];
     const rows = events.map((event) => [
+      event.eventType === 'email' ? 'Email' : 'Promo',
       event.competitor.name,
       event.description || event.title,
       event.promoCode || '',
       event.discountPercent ? `${event.discountPercent}%` : '',
       new Date(event.start).toLocaleDateString(),
-      event.isActive ? 'Ongoing' : new Date(event.end).toLocaleDateString(),
-      event.isActive ? 'Active' : 'Ended',
+      event.eventType === 'email' ? '-' : event.isActive ? 'Ongoing' : new Date(event.end).toLocaleDateString(),
+      event.eventType === 'email' ? 'Received' : event.isActive ? 'Active' : 'Ended',
     ]);
 
     const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(','))].join('\n');
@@ -112,16 +114,24 @@ export default function CalendarPage() {
       )}
 
       {events.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p className="text-sm text-gray-500 mb-1">Active Promos</p>
             <p className="text-3xl font-bold text-gray-900">
-              {events.filter((e) => e.isActive).length}
+              {events.filter((e) => e.eventType !== 'email' && e.isActive).length}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <p className="text-sm text-gray-500 mb-1">Total Tracked</p>
-            <p className="text-3xl font-bold text-gray-900">{events.length}</p>
+            <p className="text-sm text-gray-500 mb-1">Total Promos</p>
+            <p className="text-3xl font-bold text-gray-900">
+              {events.filter((e) => e.eventType !== 'email').length}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <p className="text-sm text-gray-500 mb-1">Emails Tracked</p>
+            <p className="text-3xl font-bold text-purple-600">
+              {events.filter((e) => e.eventType === 'email').length}
+            </p>
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <p className="text-sm text-gray-500 mb-1">Competitors</p>

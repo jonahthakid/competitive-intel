@@ -19,6 +19,7 @@ interface PromoEvent {
   promoCode: string | null;
   discountPercent: number | null;
   sourceType: string;
+  eventType?: 'promo' | 'email';
 }
 
 interface PromoCalendarProps {
@@ -41,6 +42,13 @@ const COLORS = [
 export default function PromoCalendar({ events, competitors }: PromoCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<PromoEvent | null>(null);
+  const [eventFilter, setEventFilter] = useState<'all' | 'promo' | 'email'>('all');
+
+  // Filter events based on selected filter
+  const filteredEvents = useMemo(() => {
+    if (eventFilter === 'all') return events;
+    return events.filter((e) => e.eventType === eventFilter);
+  }, [events, eventFilter]);
 
   // Create color map for competitors
   const colorMap = useMemo(() => {
@@ -57,7 +65,7 @@ export default function PromoCalendar({ events, competitors }: PromoCalendarProp
 
   // Get events for a specific day
   const getEventsForDay = (day: Date) => {
-    return events.filter((event) => {
+    return filteredEvents.filter((event) => {
       const start = parseISO(event.start);
       const end = parseISO(event.end);
       return isWithinInterval(day, { start, end }) || isSameDay(day, start) || isSameDay(day, end);
@@ -74,25 +82,61 @@ export default function PromoCalendar({ events, competitors }: PromoCalendarProp
         <h2 className="text-lg font-semibold text-gray-900">
           {format(currentMonth, 'MMMM yyyy')}
         </h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={previousMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setCurrentMonth(new Date())}
-            className="px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            Today
-          </button>
-          <button
-            onClick={nextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+        <div className="flex items-center gap-4">
+          {/* Event Type Filter */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setEventFilter('all')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                eventFilter === 'all'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setEventFilter('promo')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                eventFilter === 'promo'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Promos
+            </button>
+            <button
+              onClick={() => setEventFilter('email')}
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                eventFilter === 'email'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Emails
+            </button>
+          </div>
+          {/* Month Navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={previousMonth}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setCurrentMonth(new Date())}
+              className="px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Today
+            </button>
+            <button
+              onClick={nextMonth}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -151,11 +195,14 @@ export default function PromoCalendar({ events, competitors }: PromoCalendarProp
                 <div className="space-y-0.5 overflow-y-auto max-h-16">
                   {dayEvents.slice(0, 3).map((event) => {
                     const color = colorMap.get(event.competitor.id) || COLORS[0];
+                    const isEmail = event.eventType === 'email';
                     return (
                       <button
                         key={event.id}
                         onClick={() => setSelectedEvent(event)}
-                        className={`w-full text-left px-1.5 py-0.5 text-xs rounded truncate ${color.bg} ${color.text} hover:opacity-80`}
+                        className={`w-full text-left px-1.5 py-0.5 text-xs rounded truncate ${color.bg} ${color.text} hover:opacity-80 ${
+                          isEmail ? 'border border-dashed border-current' : ''
+                        }`}
                       >
                         {event.title}
                       </button>
@@ -231,8 +278,12 @@ export default function PromoCalendar({ events, competitors }: PromoCalendarProp
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                {selectedEvent.isActive ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedEvent.eventType === 'email' ? (
+                  <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                    Email
+                  </span>
+                ) : selectedEvent.isActive ? (
                   <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                     Active
                   </span>
